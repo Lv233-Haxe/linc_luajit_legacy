@@ -48,19 +48,6 @@ class Convert {
 		return true;
 	}
 
-	public static inline function arrayToLua(l:State, arr:Array<Any>) {
-
-		var size:Int = arr.length;
-		Lua.createtable(l, size, 0);
-
-		for (i in 0...size) {
-			Lua.pushnumber(l, i + 1);
-			toLua(l, arr[i]);
-			Lua.settable(l, -3);
-		}
-
-	}
-
 	static inline function objectToLua(l:State, res:Any) {
 
 		Lua.createtable(l, 0, 0); // TODO: find table length ?
@@ -70,17 +57,6 @@ class Convert {
 			Lua.settable(l, -3);
 		}
 
-	}
-
-	static inline function mapToLua(l:State, mapValue:Any) {
-		var map:haxe.ds.StringMap<Dynamic> = cast(mapValue, haxe.ds.StringMap<Dynamic>);
-
-		Lua.createtable(l, 0, 0);
-		for (key => value in map) {
-			Lua.pushstring(l, key);
-			Convert.toLua(l, value);
-			Lua.settable(l, -3);
-		}
 	}
 	
 	public static function callback_handler(cbf:Dynamic,l:State,?object:Dynamic/*,cbf:Dynamic,lsp:Dynamic*/):Int {
