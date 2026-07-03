@@ -27,31 +27,6 @@ class Convert {
 				Lua.pushboolean(l, val);
 			case Type.ValueType.TInt:
 				Lua.pushinteger(l, cast(val, Int));
-			// case Type.ValueType.TFunction: 
-				// if(!allowFunctions) return false;
-				// return false;
-				// var funcIndex = -1;
-				// if(functionReferences[l] == null){
-				// 	functionReferences[l] = [val];
-				// 	funcIndex = 0;
-				// }else{
-				// 	for(i => v in functionReferences[l]){
-				// 		if(v == val){
-				// 			funcIndex = i;
-				// 			break;
-				// 		}
-				// 	}
-				// 	if(funcIndex == -1){
-				// 		funcIndex = functionReferences[l].length;
-				// 		functionReferences[l].push(val);
-				// 	}
-				// }
-				
-				// Lua.pushcfunction(l,
-				
-				// {
-				// 	return callback_handler(val,l);
-				// }),1);
 			case Type.ValueType.TFloat:
 				Lua.pushnumber(l, val);
 			case Type.ValueType.TClass(String):
@@ -60,8 +35,12 @@ class Convert {
 				arrayToLua(l, val);
 			case Type.ValueType.TClass(haxe.ds.StringMap) | Type.ValueType.TClass(haxe.ds.ObjectMap):
 				mapToLua(l, val);
+			case Type.ValueType.TClass(Array):
+				arrayToLua(l, val);
 			case Type.ValueType.TObject:
-				anonToLua(l, val); // {}
+				objectToLua(l, val); // {}
+			case Type.ValueType.TClass(haxe.ds.StringMap):
+				mapToLua(l, val);
 			default:
 				if(enableUnsupportedTraces) trace('Haxe value of $val of type ${Type.typeof(val)} not supported!' );
 				return false;
@@ -69,6 +48,41 @@ class Convert {
 		return true;
 	}
 
+	public static inline function arrayToLua(l:State, arr:Array<Any>) {
+
+		var size:Int = arr.length;
+		Lua.createtable(l, size, 0);
+
+		for (i in 0...size) {
+			Lua.pushnumber(l, i + 1);
+			toLua(l, arr[i]);
+			Lua.settable(l, -3);
+		}
+
+	}
+
+	static inline function objectToLua(l:State, res:Any) {
+
+		Lua.createtable(l, 0, 0); // TODO: find table length ?
+		for (n in Reflect.fields(res)){
+			Lua.pushstring(l, n);
+			toLua(l, Reflect.field(res, n));
+			Lua.settable(l, -3);
+		}
+
+	}
+
+	static inline function mapToLua(l:State, mapValue:Any) {
+		var map:haxe.ds.StringMap<Dynamic> = cast(mapValue, haxe.ds.StringMap<Dynamic>);
+
+		Lua.createtable(l, 0, 0);
+		for (key => value in map) {
+			Lua.pushstring(l, key);
+			Convert.toLua(l, value);
+			Lua.settable(l, -3);
+		}
+	}
+	
 	public static function callback_handler(cbf:Dynamic,l:State,?object:Dynamic/*,cbf:Dynamic,lsp:Dynamic*/):Int {
 		try{
 			final l:State = l;
