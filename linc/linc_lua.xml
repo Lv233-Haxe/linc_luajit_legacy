@@ -33,6 +33,67 @@
             <!-- <lib name='${LINC_LUA_PATH}/lib/lua/lib/Mac/libluajit-5.1.a' if='HXCPP_M32' /> -->
         </section>
         <section if="android">
+            <!--
+              LuaJIT MUST be force-linked whole, BEFORE any shared lib on the link line.
+
+              Why: libvlc.so (pulled in by hxvlc as an ndll) embeds its own vanilla
+              Lua 5.1.4 and exports all 124 lua_*/luaL_* symbols. hxcpp puts lib
+              entries LAST on the link line (Linker.hx:292), and android-clang's dll
+              linker does not set expandAr, so archive members are extracted ON DEMAND.
+              Result: libvlc.so satisfies the game's lua_* references first, the
+              LuaJIT archive members defining them are never extracted, and
+              libApplicationMain.so ends up with lua_* split across TWO
+              ABI-incompatible implementations. Observed on arm64: luaL_newstate,
+              luaL_openlibs, lua_pushcclosure and lua_pcall are UNDEF imports from
+              libvlc's vanilla Lua, while lua_newstate, lua_close and luaL_loadbuffer
+              resolve to LuaJIT. A LuaJIT lua_State then gets read at vanilla struct
+              offsets, which segfaults. The allow-multiple-definition flag in the
+              clang toolchain hides the duplicate-symbol error that would otherwise
+              catch this at link time.
+
+              whole-archive : extract every member, so all lua_* are DEFINED locally.
+              exclude-libs  : mark them hidden, so libvlc's internal lua calls bind
+                              to its own vanilla Lua instead of reaching LuaJIT here.
+              Flags land before libs on the command line (Linker.hx:218 vs :292).
+              The archive path is passed as its OWN argument, not inside a comma
+              list, because haxelib version directories contain commas (e.g.
+              .haxelib/hxvlc/2,0,1/) and -Wl,a,b,c splits on every comma. If
+              linc_luajit is ever installed as a versioned haxelib instead of a
+              git checkout, LINC_LUA_PATH would contain a comma and the comma
+              form would silently truncate the path.
+              whole-archive extracts unconditionally, so position relative to
+              the objects does not matter.
+            -->
+            <section if='HXCPP_ARMV7'>
+                <flag value='-Wl,--whole-archive' />
+                <flag value='${LINC_LUA_PATH}/lib/lua/lib/Android/libluajit-v7.a' />
+                <flag value='-Wl,--no-whole-archive' />
+                <flag value='-Wl,--exclude-libs,libluajit-v7.a' />
+            </section>
+
+            <section if='HXCPP_X86'>
+                <flag value='-Wl,--whole-archive' />
+                <flag value='${LINC_LUA_PATH}/lib/lua/lib/Android/libluajit-x86.a' />
+                <flag value='-Wl,--no-whole-archive' />
+                <flag value='-Wl,--exclude-libs,libluajit-x86.a' />
+            </section>
+
+            <section if='HXCPP_X86_64'>
+                <flag value='-Wl,--whole-archive' />
+                <flag value='${LINC_LUA_PATH}/lib/lua/lib/Android/libluajit-x86_64.a' />
+                <flag value='-Wl,--no-whole-archive' />
+                <flag value='-Wl,--exclude-libs,libluajit-x86_64.a' />
+            </section>
+
+            <section if='HXCPP_ARM64'>
+                <flag value='-Wl,--whole-archive' />
+                <flag value='${LINC_LUA_PATH}/lib/lua/lib/Android/libluajit-64.a' />
+                <flag value='-Wl,--no-whole-archive' />
+                <flag value='-Wl,--exclude-libs,libluajit-64.a' />
+            </section>
+
+            <!-- kept so hxcpp still tracks the archive for rebuild-on-change;
+                 by the time the linker reaches these, nothing is left to extract -->
             <lib name='${LINC_LUA_PATH}/lib/lua/lib/Android/libluajit-v7.a' if='HXCPP_ARMV7' />
             <lib name='${LINC_LUA_PATH}/lib/lua/lib/Android/libluajit-x86.a' if='HXCPP_X86' />
             <lib name='${LINC_LUA_PATH}/lib/lua/lib/Android/libluajit-x86_64.a' if='HXCPP_X86_64' />
